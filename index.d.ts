@@ -1,6 +1,8 @@
 // TypeScript Version: 3.5
 
-import { ReactNode, useState, ComponentType, MouseEvent } from 'react'
+// updated to support v7.0.0-beta.10
+
+import { ReactNode, ComponentType, MouseEvent } from 'react'
 
 /**
  * The empty definitions of below provides a base definition for the parts used by useTable, that can then be extended in the users code.
@@ -14,7 +16,7 @@ import { ReactNode, useState, ComponentType, MouseEvent } from 'react'
 export interface TableOptions<D extends object> extends UseTableOptions<D> {}
 
 export interface TableInstance<D extends object = {}>
-  extends Omit<TableOptions<D>, 'columns'>,
+  extends Omit<TableOptions<D>, 'columns' | 'state'>,
     UseTableInstanceProps<D> {}
 
 export interface TableState<
@@ -45,16 +47,21 @@ export function useTable<D extends object = {}>(
 ): TableInstance<D>
 
 export type UseTableOptions<D extends object> = Partial<{
+  initialState: Partial<TableState<D>>
+  state: Partial<TableState<D>>
+  reducer: (
+    oldState: TableState<D>,
+    newState: TableState<D>,
+    type: string
+  ) => TableState<D>
   columns: Column<D>[]
-  state: TableStateTuple<D>
   data: D[]
   defaultColumn: Partial<Column<D>>
   initialRowStateKey: IdType<D>
   getSubRows: (row: Row<D>, relativeIndex: number) => Row<D>[]
   getRowID: (row: Row<D>, relativeIndex: number) => string
   debug: boolean
-}> &
-  Record<string, any>
+}>
 
 export interface UseTableHooks<D extends object> {
   columnsBeforeHeaderGroups: ((
@@ -87,9 +94,14 @@ export interface UseTableColumnOptions<D extends object>
       show: boolean | ((instance: TableInstance<D>) => boolean)
       Header: Renderer<HeaderProps<D>>
       Cell: Renderer<CellProps<D>>
+      width?: number
+      minWidth?: number
+      maxWidth?: number
     }> {}
 
 export interface UseTableInstanceProps<D extends object> {
+  state: TableState<D>
+  setState: SetState<D>
   columns: ColumnInstance<D>[]
   flatColumns: ColumnInstance<D>[]
   headerGroups: HeaderGroup<D>[]
@@ -97,9 +109,17 @@ export interface UseTableInstanceProps<D extends object> {
   flatHeaders: ColumnInstance<D>[]
   rows: Row<D>[]
   getTableProps: (props?: object) => object
+  getTableBodyProps: (props?: object) => object
   prepareRow: (row: Row<D>) => void
-  rowPaths: string[]
   flatRows: Row<D>[]
+  totalColumnsWidth: number
+  setRowState: (rowPath: string, updater: (old: any) => any | any) => void
+  setCellState: (
+    rowPath: string,
+    columnId: string,
+    updater: (old: any) => any | any
+  ) => void
+  rowPaths: string[]
 }
 
 export interface UseTableHeaderGroupProps<D extends object> {
@@ -259,6 +279,7 @@ export interface UseFiltersColumnProps<D extends object> {
   ) => void
   filterValue: FilterValue
   preFilteredRows: Row<D>[]
+  filteredRows: Row<D>[]
 }
 
 export type FilterProps<D extends object> = HeaderProps<D>
@@ -554,19 +575,40 @@ export interface SortingRule<D> {
 }
 /* #endregion */
 
-// Additional API
-export function useTableState<D extends object = {}>(
-  initialState?: Partial<TableState<D>>,
-  overrides?: Partial<TableState<D>>,
-  options?: {
-    reducer?: (
-      oldState: TableState<D>,
-      newState: TableState<D>,
-      type: string
-    ) => TableState<D>
-    useState?: typeof useState
-  }
-): TableStateTuple<D>
+/* #region useAbsoluteLayout */
+export function useAbsoluteLayout<D extends object = {}>(hooks: Hooks<D>): void
+export namespace useAbsoluteLayout {
+  const pluginName = 'useAbsoluteLayout'
+}
+/* #endregion */
+
+/* #region useBlockLayout */
+export function useBlockLayout<D extends object = {}>(hooks: Hooks<D>): void
+export namespace useBlockLayout {
+  const pluginName = 'useBlockLayout'
+}
+/* #endregion */
+
+/* #region useResizeColumns */
+export function useResizeColumns<D extends object = {}>(hooks: Hooks<D>): void
+export namespace useResizeColumns {
+  const pluginName = 'useResizeColumns'
+}
+
+export interface UseResizeColumnsOptions<D extends object> {
+  disableResizing?: boolean
+}
+
+export interface UseResizeColumnsColumnOptions<D extends object> {
+  disableResizing?: boolean
+}
+
+export interface UseResizeColumnsHeaderProps<D extends object> {
+  getResizerProps: (props?: object) => object
+  canResize: boolean
+  isResizing: boolean
+}
+/* #endregion */
 
 export const actions: Record<string, string>
 export function addActions(...actions: string[]): void
@@ -589,5 +631,3 @@ export type SetState<D extends object> = (
   updater: (old: TableState<D>) => TableState<D>,
   type: keyof typeof actions
 ) => void
-
-export type TableStateTuple<D extends object> = [TableState<D>, SetState<D>]
